@@ -85,4 +85,4 @@ diffColors['B'] = diffColors[added];
 export const noData = `\u2014`;
 
 export const chartHeight = 504;
-export const sharedLeftMargin = 72;
+export const sharedLeftMargin = 108;

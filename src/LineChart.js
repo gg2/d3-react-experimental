@@ -19,11 +19,6 @@ const useD3Plot = (renderD3Plot) => {
     return chartRef;
 };
 
-// TODO:
-// Add possible 2nd plot
-// Colors per theme and per plot
-// Zoom
-// Test like crazy, big and small, types, options!
 
 const LineChart = ({ plotData }) => {
 
@@ -34,7 +29,7 @@ const LineChart = ({ plotData }) => {
     let marginTop = 36; // top margin, in pixels
     let marginRight = 18; // right margin, in pixels
     let marginBottom = 36; // bottom margin, in pixels
-    let marginLeft = 108; // left margin, in pixels
+    let marginLeft = sharedLeftMargin; // left margin, in pixels
     let width = 1400; // outer width, in pixels
     let height = chartHeight; // outer height, in pixels
     let xType = d3.scaleUtc; // the x-scale type
@@ -65,24 +60,6 @@ const LineChart = ({ plotData }) => {
     let mixBlendMode = "multiply"; // blend mode of lines
 
     const chartRef = useD3Plot((svg) => {
-
-        // Differences w/ Observable multi-plot chart
-        // - data is one long array of objects, rather than multiple arrays
-        // - Z object is incorporated
-        // Technique
-        // - add a g instead of path directly
-        // - use select/join to select all paths, add data, join paths
-        //   - data is grouped by Z (d3.group(I, i => Z[i]))
-        //     output:
-        //     Map(2) {
-        //       "A" => Array(n),
-        //       "B" => Array(n)
-        //     }
-        //   - "d" attr = something odd based on line(I)
-
-        // TODO: Enable multiple plots by restructuring ncr data to match Observable example
-        // -> plot type x A|B x data
-        // - need color function
 
         // Compute values.
         const X = d3.map(plotData.A, x);
