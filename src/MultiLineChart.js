@@ -20,39 +20,27 @@ const useD3Plot = (renderD3Plot) => {
 };
 
 
-// TODO:
-// Select out data to display (for 1 or both plots), based on selected set (n, ngood, mean, std, etc)
-// Make the bridge to convert data from default to current working MultiLineChart format:
-// Given active plot ("key"):
-// - output: [{src: 'A|B', x: X, y: Y}, ...]
-// - concatenate A and B data, if B exists.
-// - add in src property.
-// Test performance w/ basic, non-interactive version!
-// Make tooltip work in test setup. Then integrate it into official repo.
-// Zoom.
-// Test like crazy, big and small, types, options!
-
 const MultiLineChart = ({ multiData }) => {
 
-    let x = d => d.x; // given d in data, returns the (temporal) x-value
-    let y = d => d.y; // given d in data, returns the (quantitative) y-value
-    let z = d => d.src; // given d in data, returns the (categorical) z-value
     let title = undefined; // given d in data, returns the title text
     let defined = undefined; // for gaps in data
     let curve = d3.curveLinear; // method of interpolation between points
-    let marginTop = 36; // top margin, in pixels
-    let marginRight = 18; // right margin, in pixels
-    let marginBottom = 36; // bottom margin, in pixels
-    let marginLeft = sharedLeftMargin; // left margin, in pixels
-    let width = 1400; // outer width, in pixels
-    let height = chartHeight; // outer height, in pixels
+    const chartWidth = 1400; // outer width, in pixels
+    const margins = {
+        top: 10,
+        right: 120,
+        bottom: 30,
+        left: sharedLeftMargin,
+    };
+    const plotWidth = chartWidth - margins.left - margins.right;
+    const plotHeight = chartHeight - margins.top - margins.bottom;
     let xType = d3.scaleUtc; // the x-scale type
     let xDomain = undefined; // [xmin, xmax]
-    let xRange = [marginLeft, width - marginRight]; // [left, right]
+    let xRange = [margins.left, plotWidth]; // [left, right]
     let yType = d3.scaleLinear; // the y-scale type
-    let dynamicY = false; // y-axis follows data? or always based at 0?
+    let dynamicY = false; // y-axis follows data (true), or always based at 0 (false)?
     let yDomain = undefined; // [ymin, ymax]
-    let yRange = [height - marginBottom, marginTop]; // [bottom, top]
+    let yRange = [chartHeight - margins.bottom, margins.top]; // [bottom, top]
     let yFormat = (d) => { // a format specifier string for the y-axis
         if (d >= Math.pow(10, 6) || d <= -1 * Math.pow(10, 6)) {
             return new Intl.NumberFormat('en-US', {style: 'decimal', notation: "compact", compactDisplay: "short"}).format(d);
@@ -77,16 +65,15 @@ const MultiLineChart = ({ multiData }) => {
     let strokeWidth = 1.5; // stroke width of line, in pixels
     let strokeOpacity = 1; // stroke opacity of line
     let mixBlendMode = null; // blend mode of lines
-    let voronoi = undefined; // show a Voronoi overlay? (for debugging)
 
 
     const chartRef = useD3Plot((svg) => {
 
         // Compute values.
-        const X = d3.map(multiData, x); // Array of times
-        const Y = d3.map(multiData, y); // Array of data values
-        const Z = d3.map(multiData, z); // Array of the "category" -- plot source, in my case.
-        const O = d3.map(multiData, d => d); // Array of the input values <= Exactly the same as the input data
+        const X = d3.map(multiData, d => d.x); // Array of times
+        const Y = d3.map(multiData, d => d.y); // Array of data values
+        const Z = d3.map(multiData, d => d.src); // Array of the "category" -- plot source, in my case.
+        //const O = d3.map(multiData, d => d); // Array of the input values <= Exactly the same as the input data
         if (defined === undefined) defined = (d, i) => !(
             [null, undefined].includes(X[i]) ||
             isNaN(X[i]) ||
@@ -115,10 +102,10 @@ const MultiLineChart = ({ multiData }) => {
         const xScale = xType(xDomain, xRange);
         const yScale = yType(yDomain, yRange);
         const xAxis = d3.axisBottom(xScale)
-            .ticks(width / (width/12))
+            .ticks(chartWidth / (chartWidth/12))
             .tickSizeOuter(0);
         const yAxis = d3.axisLeft(yScale)
-            .ticks(height / (height/10))
+            .ticks(chartHeight / (chartHeight/10))
             .tickSizeInner(4)
             .tickFormat(yFormat)
             .tickPadding(9);
@@ -134,9 +121,9 @@ const MultiLineChart = ({ multiData }) => {
             .y(i => yScale(Y[i]));
 
         svg
-            .attr("width", width)
-            .attr("height", height)
-            .attr("viewBox", [0, 0, width, height])
+            .attr("width", chartWidth)
+            .attr("height", chartHeight)
+            .attr("viewBox", [0, 0, chartWidth, chartHeight])
             .attr("style", "max-width: 100%; height: auto; height: intrinsic; background-color: #282c34;")
             .style("-webkit-tap-highlight-color", "transparent")
             .selectAll('*').remove()
@@ -145,31 +132,20 @@ const MultiLineChart = ({ multiData }) => {
             .on("pointerleave", pointerleft)
             .on("touchstart", event => event.preventDefault());
 
-        // An optional Voronoi display (for fun).
-        if (voronoi) {
-            svg.append("path")
-                .attr("fill", "none")
-                .attr("stroke", "#ccc")
-                .attr("d", d3.Delaunay
-                    .from(I, i => xScale(X[i]), i => yScale(Y[i]))
-                    .voronoi([0, 0, width, height])
-                    .render());
-        }
-
         svg.append("g")
-            .attr("transform", `translate(0,${height - marginBottom})`)
+            .attr("transform", `translate(0,${chartHeight - margins.bottom})`)
             .call(xAxis)
             .style("color", textColor)
             .selectAll("text")
                 .style("font-size", axisFontSize);
 
         svg.append("g")
-            .attr("transform", `translate(${marginLeft * .926},0)`)
+            .attr("transform", `translate(${margins.left * .926},0)`)
             .call(yAxis)
             .style("color", textColor)
             .call(g => g.select(".domain").remove())
-            .call(voronoi ? () => {} : g => g.selectAll(".tick line").clone()
-                .attr("x2", width - marginLeft - marginRight)
+            .call(g => g.selectAll(".tick line").clone()
+                .attr("x2", chartWidth - margins.left - margins.right)
                 .attr("stroke-opacity", 0.1))
             .call(g => g.append("text")
                 .attr("x", 0)
@@ -224,7 +200,7 @@ const MultiLineChart = ({ multiData }) => {
             dot.attr("transform", `translate(${xScale(X[i])},${yScale(Y[i])})`);
             if (T) dot.select("text").text(T[i]);
             svg.property("value", multiData[i]).dispatch("input", {bubbles: true}); // TODO: Is this broken w/ O -> multiData?
-        }
+        }                                                                           //       Does it need to reference a more specific property (than just multiData[i])?
     
         function pointerentered() {
             path.style("mix-blend-mode", null).style("stroke", "#ddd");
