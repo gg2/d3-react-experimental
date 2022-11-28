@@ -9,6 +9,8 @@ import {
 } from './resources/constants';
 
 
+// Source for using D3 in React:
+// https://www.pluralsight.com/guides/using-d3.js-inside-a-react-app
 const useD3Plot = (renderD3Plot) => {
     const chartRef = useRef(null);
 
@@ -19,7 +21,8 @@ const useD3Plot = (renderD3Plot) => {
     return chartRef;
 };
 
-
+// Source:
+// https://observablehq.com/@d3/line-chart
 const LineChart = ({ plotData }) => {
 
     let x = d => d[0]; // given d in data, returns the (temporal) x-value
