@@ -1,4 +1,4 @@
-
+// Current format of ncreview plot data, post-load
 const ncData = {
     'A': {
         "labels": ["n","ngood","nmiss","ninf","nnan","nfill","min","max","mean","std"],
@@ -150,6 +150,7 @@ const ncData = {
     'B': undefined
 };
 
+// Current MultiLineChart data #1, to check 1 plot alone will display correctly
 const plotData_nonDiff = [
     {src: "A", x: 922838400000, y: 77977.04399212688},
     {src: "A", x: 922924800000, y: 9635742.88004772},
@@ -203,6 +204,7 @@ const plotData_nonDiff = [
     {src: "A", x: 927072000000, y: null},
 ];
 
+// Current MultiLineChart data #2, to check 2 plots will display correctly
 const plotData_diff = [
     {src: "A", x: 922838400000, y: 77977.04399212688},
     {src: "A", x: 922924800000, y: 9635742.88004772},
@@ -307,6 +309,7 @@ const plotData_diff = [
     {src: "B", x: 927072000000, y: null}
 ];
 
+// Current LineChart data
 const plotData_1 = {
     'A': [
         [922838400000, 77977.04399212688],
@@ -414,6 +417,7 @@ const plotData_1 = {
     ]
 };
 
+// Original LineChart data
 const lineChartData = [
     [922838400000, 77977.04399212688],
     [922924800000, 9635742.88004772],
