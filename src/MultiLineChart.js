@@ -1,5 +1,5 @@
 // NPM packages
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
 import {
@@ -7,6 +7,9 @@ import {
     diffColors,
     chartHeight, sharedLeftMargin
 } from './resources/constants';
+import {
+    secondsToReadableDate
+} from './utils';
 
 
 // Source for using D3 in React:
@@ -24,28 +27,47 @@ const useD3Plot = (renderD3Plot) => {
 
 // Source:
 // https://observablehq.com/@d3/multi-line-chart
-const MultiLineChart = ({ multiData }) => {
+const MultiLineChart = ({ plotData }) => {
 
-    let title = undefined; // given d in data, returns the title text
-    let defined = undefined; // for gaps in data
-    let curve = d3.curveLinear; // method of interpolation between points
     const chartWidth = 1400; // outer width, in pixels
     const margins = {
-        top: 10,
-        right: 120,
+        top: 30,
+        right: 30,
         bottom: 30,
         left: sharedLeftMargin,
     };
     const plotWidth = chartWidth - margins.left - margins.right;
     const plotHeight = chartHeight - margins.top - margins.bottom;
-    let xType = d3.scaleUtc; // the x-scale type
-    let xDomain = undefined; // [xmin, xmax]
-    let xRange = [margins.left, plotWidth]; // [left, right]
-    let yType = d3.scaleLinear; // the y-scale type
-    let dynamicY = false; // y-axis follows data (true), or always based at 0 (false)?
-    let yDomain = undefined; // [ymin, ymax]
-    let yRange = [chartHeight - margins.bottom, margins.top]; // [bottom, top]
-    let yFormat = (d) => { // a format specifier string for the y-axis
+    const diff = changed; // in actual usage outside this experiment, would be provided to MultiLineChart as a parameter
+    const [ d3PlotConfig, ] = useState({
+        curve: d3.curveLinear, // method of interpolation between points
+        margins: margins,
+        plotWidth: plotWidth,
+        plotHeight: plotHeight,
+        xType: d3.scaleUtc, // the x-scale type
+        xRange: [margins.left, plotWidth + margins.left], // [left, right]
+        yType: d3.scaleLinear, // the y-scale type
+        yRange: [chartHeight - margins.bottom, margins.top], // [bottom, top]
+        yLabel: "Random Value ($)", // a label for the y-axis; in actual usage, would be determined by/provided with data
+        dynamicY: false, // y-axis follows data (true), or always based at 0 (false)?
+        textColor: diffColors[same].dark, // color of axes labels and other text
+        axisFontSize: "1.222222em", // font-size of axes 
+        tooltipFontSize: "1.555555em", // font-size of tooltip text
+        strokeLinecap: "round", // stroke line cap of the line
+        strokeLinejoin: "round", // stroke line join of the line
+        strokeWidth: 1.5, // stroke width of line, in pixels
+        strokeOpacity: 1, // stroke opacity of line
+        mixBlendMode: null, // blend mode of lines
+        // TODO: Change mixBlendMode to setting color opacity to 100%
+    });
+    const chartElemRefs = useRef({});
+
+    function getPlotColor(z) { // z == d.src
+        const _z = ( !z ? nonDiff : ( diff === added ? added : z ));
+        return diffColors[_z].line;
+    }
+
+    function yFormat(d) { // formats y-axis tick labels
         if (d >= Math.pow(10, 6) || d <= -1 * Math.pow(10, 6)) {
             return new Intl.NumberFormat('en-US', {style: 'decimal', notation: "compact", compactDisplay: "short"}).format(d);
         }
@@ -55,56 +77,44 @@ const MultiLineChart = ({ multiData }) => {
         else {
             return d.toPrecision(7).replace(/0+$/,"");  // remove trailing zeros
         }
-    };
-    let yLabel = "Random Value ($)"; // a label for the y-axis
-    let zDomain = undefined; // array of z-values
-    let plotColor = (z) => { // stroke color of line, as a constant or a function of *z*
-        if (!z) z = nonDiff;
-        return diffColors[z].line;
-    };
-    let textColor = "#babad2"; // color of axes labels and other text
-    let axisFontSize = "1.25em"; // font-size of axes labels
-    let strokeLinecap = "round"; // stroke line cap of the line
-    let strokeLinejoin = "round"; // stroke line join of the line
-    let strokeWidth = 1.5; // stroke width of line, in pixels
-    let strokeOpacity = 1; // stroke opacity of line
-    let mixBlendMode = null; // blend mode of lines
+    }
 
+    // Compute values.
+    const X = d3.map(plotData, d => d.x); // Array of times
+    const Y = d3.map(plotData, d => d.y); // Array of data values
+    const Z = d3.map(plotData, d => d.src); // Array of the "category" -- d.src (A|B), in this case.
+    //const O = d3.map(plotData, d => d); // Array of the input values <= Exactly the same as the input data
+    let defined = d => !( // identifies gaps in data
+        [null, undefined].includes(d.x) ||
+        isNaN(d.x) ||
+        [null, undefined].includes(d.y) ||
+        isNaN(d.y)
+    );
+    const D = d3.map(plotData, defined); // Array of true|false
+
+    // Compute default domains, and unique the z-domain.
+    let xDomain = d3.extent(X); // [xmin, xmax]
+    let yDomain = (() => { // [ymin, ymax]
+        let yMin = ( d3PlotConfig.dynamicY ? d3.min(Y) : d3.min([0, d3.min(Y)]) );
+        let yMax = d3.max(Y, d => typeof d === "string" ? +d : d);
+        let yPadding = (yMax - yMin) * .02;
+        yMin = yMin - yPadding;
+        yMax = yMax + yPadding;
+        return [yMin, yMax];
+    })();
+    let zDomain = new d3.InternSet(Z); // Exactly as expected: Z reduced to a set of 2
+
+    // Omit any data not present in the z-domain.
+    const I = d3.range(X.length).filter(i => zDomain.has(Z[i])); // Array of values 0 -> X.length - 1, continuous ?unless Z has bad values?
+
+    // Construct scales for axes.
+    const xScale = d3PlotConfig.xType(xDomain, d3PlotConfig.xRange);
+    const yScale = d3PlotConfig.yType(yDomain, d3PlotConfig.yRange);
 
     const chartRef = useD3Plot((svg) => {
+        const cfg = d3PlotConfig;
 
-        // Compute values.
-        const X = d3.map(multiData, d => d.x); // Array of times
-        const Y = d3.map(multiData, d => d.y); // Array of data values
-        const Z = d3.map(multiData, d => d.src); // Array of the "category" -- plot source, in my case.
-        //const O = d3.map(multiData, d => d); // Array of the input values <= Exactly the same as the input data
-        if (defined === undefined) defined = (d, i) => !(
-            [null, undefined].includes(X[i]) ||
-            isNaN(X[i]) ||
-            [null, undefined].includes(Y[i]) ||
-            isNaN(Y[i])
-        );
-        const D = d3.map(multiData, defined); // Array of true|false
-
-        // Compute default domains, and unique the z-domain.
-        if (xDomain === undefined) xDomain = d3.extent(X);
-        if (yDomain === undefined) {
-            let yMin = ( dynamicY ? d3.min(Y) : d3.min([0, d3.min(Y)]) );
-            let yMax = d3.max(Y, d => typeof d === "string" ? +d : d);
-            let yPadding = (yMax - yMin) * .02;
-            yMin = yMin - yPadding;
-            yMax = yMax + yPadding;
-            yDomain = [yMin, yMax];
-        }
-        if (zDomain === undefined) zDomain = Z;
-        zDomain = new d3.InternSet(zDomain); // Exactly as expected: Z reduced to a set of 2
-    
-        // Omit any data not present in the z-domain.
-        const I = d3.range(X.length).filter(i => zDomain.has(Z[i])); // Array of values 0 -> X.length - 1, continuous ?unless Z has bad values?
-    
-        // Construct scales and axes.
-        const xScale = xType(xDomain, xRange);
-        const yScale = yType(yDomain, yRange);
+        // Construct axes.
         const xAxis = d3.axisBottom(xScale)
             .ticks(chartWidth / (chartWidth/12))
             .tickSizeOuter(0);
@@ -114,115 +124,143 @@ const MultiLineChart = ({ multiData }) => {
             .tickFormat(yFormat)
             .tickPadding(9);
 
-        // Compute titles.
-        const T = title === undefined ? Z : title === null ? null : d3.map(multiData, title);
-
         // Construct a line generator.
         const line = d3.line()
             .defined(i => D[i])
-            .curve(curve)
+            .curve(cfg.curve)
             .x(i => xScale(X[i]))
             .y(i => yScale(Y[i]));
 
         svg
-            .attr("width", chartWidth)
-            .attr("height", chartHeight)
             .attr("viewBox", [0, 0, chartWidth, chartHeight])
             .attr("style", "max-width: 100%; height: auto; height: intrinsic; background-color: #282c34;")
             .style("-webkit-tap-highlight-color", "transparent")
-            .selectAll('*').remove()
-            .on("pointerenter", pointerentered)
-            .on("pointermove", pointermoved)
-            .on("pointerleave", pointerleft)
-            .on("touchstart", event => event.preventDefault());
+            .selectAll('*').remove();
 
         svg.append("g")
+            .attr("class", "axis x-axis")
             .attr("transform", `translate(0,${chartHeight - margins.bottom})`)
             .call(xAxis)
-            .style("color", textColor)
+            .style("color", cfg.textColor)
             .selectAll("text")
-                .style("font-size", axisFontSize);
+                .style("font-size", cfg.axisFontSize);
 
         svg.append("g")
+            .attr("class", "axis y-axis")
             .attr("transform", `translate(${margins.left * .926},0)`)
             .call(yAxis)
-            .style("color", textColor)
+            .style("color", cfg.textColor)
             .call(g => g.select(".domain").remove())
             .call(g => g.selectAll(".tick line").clone()
-                .attr("x2", chartWidth - margins.left - margins.right)
+                .attr("x2", plotWidth)
                 .attr("stroke-opacity", 0.1))
             .call(g => g.append("text")
                 .attr("x", 0)
-                .attr("y", axisFontSize)
-                .attr("fill", "green")
+                .attr("y", cfg.axisFontSize)
+                .attr("fill", diffColors[same].dark)
                 .attr("text-anchor", "end")
-                .text(yLabel))
+                .text(cfg.yLabel))
             .selectAll("text")
-                .style("font-size", axisFontSize);
+                .style("font-size", cfg.axisFontSize);
 
-        const path = svg.append("g")
+        const paths = svg.append("g")
+            .attr("class", "plotPaths")
             .attr("fill", "none")
-            .attr("stroke", typeof plotColor === "string" ? plotColor : null)
-            .attr("stroke-width", strokeWidth)
-            .attr("stroke-linecap", strokeLinecap)
-            .attr("stroke-linejoin", strokeLinejoin)
-            .attr("stroke-opacity", strokeOpacity)
+            .attr("stroke-width", cfg.strokeWidth)
+            .attr("stroke-linecap", cfg.strokeLinecap)
+            .attr("stroke-linejoin", cfg.strokeLinejoin)
+            .attr("stroke-opacity", cfg.strokeOpacity)
             .selectAll("path")
-                .data(d3.group(I, i => Z[i]))
-                .join("path")
-                    .style("mix-blend-mode", mixBlendMode)
-                    .attr("stroke", typeof plotColor === "function" ? ([z]) => plotColor(z) : null)
-                    .attr("d", ([, I]) => line(I));
+            .data(d3.group(I, i => Z[i]))
+            .join("path")
+                .attr("class", ([z]) => `plotLine${z} plotPath${z}`)
+                .style("mix-blend-mode", cfg.mixBlendMode)
+                .attr("stroke", ([z]) => getPlotColor(z))
+                .attr("d", ([, I]) => line(I));
+        chartElemRefs.current['paths'] = paths;
 
-        const plotPts = d3.filter(multiData, (d, i) => defined(d, i));
-        svg.selectAll(".plotPts")
-            .data(plotPts)
+        const circles = svg.select("g.plotPaths")
+            .selectAll("circle.plotPathPt")
+            .data(d3.filter(plotData, (d, i) => defined(d, i)))
             .join("circle")
-              .attr("class", "plotPts")
-              .attr("fill", d => plotColor(d.src))
-              .attr("stroke", "none")
-              .attr("r", strokeWidth)
-              .attr("cx", d => xScale(d.x))
-              .attr("cy", d => yScale(d.y));
+                .attr("class", d => `plotPathPt plotPathPt${d.src} plotPath${d.src}`)
+                .attr("fill", d => getPlotColor(d.src))
+                .attr("stroke", "none")
+                .attr("r", cfg.strokeWidth)
+                .attr("cx", d => xScale(d.x))
+                .attr("cy", d => yScale(d.y));
+        chartElemRefs.current['circles'] = circles;
 
-        const dot = svg.append("g")
+        const tooltip = svg.append("g")
+            .attr("class", "plotTooltip")
             .attr("display", "none");
-    
-        dot.append("circle")
-            .attr("r", strokeWidth * 1.666667);
-    
-        dot.append("text")
-            .attr("font-family", "sans-serif")
-            .attr("font-size", axisFontSize)
-            .attr("text-anchor", "middle")
-            .attr("y", -9);
-    
-        function pointermoved(event) {
-            const [xm, ym] = d3.pointer(event);
-            const i = d3.least(I, i => Math.hypot(xScale(X[i]) - xm, yScale(Y[i]) - ym)); // closest point
-            path.style("stroke", ([z]) => Z[i] === z ? null : "#ddd").filter(([z]) => Z[i] === z).raise();
-            dot.attr("transform", `translate(${xScale(X[i])},${yScale(Y[i])})`);
-            if (T) dot.select("text").text(T[i]);
-            svg.property("value", multiData[i]).dispatch("input", {bubbles: true}); // TODO: Is this broken w/ O -> multiData?
-        }                                                                           //       Does it need to reference a more specific property (than just multiData[i])?
-    
-        function pointerentered() {
-            path.style("mix-blend-mode", null).style("stroke", "#ddd");
-            dot.attr("display", null);
-        }
-    
-        function pointerleft() {
-            path.style("mix-blend-mode", mixBlendMode).style("stroke", null);
-            dot.attr("display", "none");
-            svg.node().value = null;
-            svg.dispatch("input", {bubbles: true});
-        }
+        tooltip.append("circle")
+                .attr("fill", "none")
+                .attr("stroke", cfg.textColor)
+                .attr("r", cfg.strokeWidth * 1.666667);
+        tooltip.append("text")
+                .attr("fill", cfg.textColor)
+                .attr("text-anchor", "middle")
+                .attr("y", 27);
+        chartElemRefs.current['tooltip'] = tooltip;
 
+        return svg;
     });
 
+    function pointermoved(event) {
+        // const svg = d3.select(chartRef.current);
+        //const paths = chartElemRefs.current['paths'];
+        const tooltip = chartElemRefs.current['tooltip'];
+
+        const [xm, ym] = d3.pointer(event);
+        const i = d3.least(I, i => Math.hypot(xScale(X[i]) - xm, yScale(Y[i]) - ym)); // closest point
+
+        //paths.style("stroke", ([z]) => Z[i] === z ? null : "#ddd").filter(([z]) => Z[i] === z).raise();
+        // TODO: Handle circles
+        const x = xScale(X[i]);
+        const y = yScale(Y[i]);
+        const xMax = xScale(X[X.length-1]);
+        tooltip.attr("transform", `translate(${x},${y})`);
+        const tooltipText = tooltip.select("text");
+        const tooltipTextText = secondsToReadableDate(X[i]/1000);
+        tooltipText.text(tooltipTextText)
+            .attr("transform", `translate(0,-${Math.floor(5 + y)})`) //${plotHeight - yScale(Y[i])})`)
+            .attr("text-anchor", ( x < xMax*0.125 ? "start" : ( x > xMax*0.875 ? "end" : "middle" )));
+        // svg.property("value", plotData[i]);
+        // svg.dispatch("input", {bubbles: true});
+    }
+
+    function pointerentered() {
+        //const paths = chartElemRefs.current['paths'];
+        const tooltip = chartElemRefs.current['tooltip'];
+
+        //paths.style("mix-blend-mode", null).style("stroke", "#ddd");
+        // TODO: Handle circles
+        tooltip.attr("display", null);
+    }
+
+    function pointerleft() {
+        // const svg = d3.select(chartRef.current);
+        //const paths = chartElemRefs.current['paths'];
+        const tooltip = chartElemRefs.current['tooltip'];
+
+        //paths.style("mix-blend-mode", d3PlotConfig.mixBlendMode).style("stroke", null);
+        // TODO: Handle circles
+        tooltip.attr("display", "none");
+        // svg.property("value", null);
+        // svg.dispatch("input", {bubbles: true});
+    }
 
     return (
-        <svg ref={ chartRef }></svg>
+        <svg
+            ref={ chartRef }
+            width={ chartWidth }
+            height={ chartHeight }
+            onPointerEnter={ pointerentered }
+            onPointerMove={ pointermoved }
+            onPointerLeave={ pointerleft }
+            onTouchStart={ event => event.preventDefault() }
+        ></svg>
     );
 };
 

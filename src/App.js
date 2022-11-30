@@ -13,7 +13,7 @@ function App() {
       <header className="App-header">
         D3 x React Experimentation
       </header>
-      <MultiLineChart multiData={ data } />
+      <MultiLineChart plotData={ data } />
     </div>
   );
 }
