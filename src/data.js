@@ -418,6 +418,7 @@ const plotData_1 = {
 };
 
 // Original LineChart data
+// NOTE: Have to change "plotData.A" to "plotData" to use.
 const lineChartData = [
     [922838400000, 77977.04399212688],
     [922924800000, 9635742.88004772],
