@@ -162,7 +162,7 @@ const MultiLineChart = ({ plotData }) => {
 
         function zoomed(event) {
             setZoomState(event.transform);
-            setTooltipCoords({x: 0, y: 0});
+            setTooltipActive(false);
         }
 
         const zoom = d3.zoom()
