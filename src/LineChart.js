@@ -14,6 +14,24 @@ import {
 diffColors['A'] = diffColors[nonDiff];
 
 
+// TODO, options:
+// - Set up React Component so React will not update the svg element. (Empty svg, with a useRef applied.)
+//   ! D3 handles that part of the DOM entirely.
+//   https://reactjs.org/docs/integrating-with-other-libraries.html
+// 
+// - Move as much as possible into the useD3Plot.
+//   - Adhere to the original example.
+//   - Apply things programmatically (event handlers) and see if they can be contained in the hook.
+// - Move the function called by useD3Plot out of the React Component.
+//   - Pass everything in as parameters.
+// ! useD3Plot can have its own useState...
+// 
+// - Apply useMemo and what all else to the other variables.
+// - Apply useState to xScale, and other zoom properties?
+
+
+
+
 // Source for using D3 in React:
 // https://www.pluralsight.com/guides/using-d3.js-inside-a-react-app
 const useD3Plot = (renderD3Plot) => {
@@ -30,6 +48,7 @@ const useD3Plot = (renderD3Plot) => {
 // https://observablehq.com/@d3/line-chart
 const LineChart = ({ plotData }) => {
 
+    const plotId = "Ned";
     let diff = nonDiff;
     let chartWidth = 1400; // outer width, in pixels
     const margins = {
@@ -109,7 +128,6 @@ const LineChart = ({ plotData }) => {
 
     // Construct scales for axes.
     const xScale = d3PlotConfig.xType(xDomain, d3PlotConfig.xRange);
-    const xScaleMax = xScale(X[X.length-1]);
     const yScale = d3PlotConfig.yType(yDomain, d3PlotConfig.yRange);
 
 
@@ -138,15 +156,24 @@ const LineChart = ({ plotData }) => {
             .attr("style", "max-width: 100%; height: auto; height: intrinsic; background-color: #282c34; -webkit-tap-highlight-color: transparent;")
             .selectAll('*').remove();
 
-        svg.append("g")
+        svg.append("clipPath")
+            .attr("id", `clip${plotId}`)
+            .append("rect")
+                .attr("x", margins.left)
+                .attr("y", margins.top)
+                .attr("width", plotWidth)
+                .attr("height", plotHeight);
+
+        const xAxisGroup = svg.append("g")
             .attr("class", "axis x-axis")
             .attr("transform", `translate(0,${chartHeight - margins.bottom})`)
             .call(xAxis)
             .style("color", cfg.textColor)
             .selectAll("text")
                 .style("font-size", cfg.axisFontSize);
+        chartElemRefs.current['xAxisGroup'] = xAxisGroup;
 
-        svg.append("g")
+        const yAxisGroup = svg.append("g")
             .attr("class", "axis y-axis")
             .attr("transform", `translate(${margins.left * .926},0)`)
             .call(yAxis)
@@ -157,6 +184,7 @@ const LineChart = ({ plotData }) => {
                 .attr("stroke-opacity", 0.1))
             .selectAll("text")
                 .style("font-size", cfg.axisFontSize);
+        chartElemRefs.current['yAxisGroup'] = yAxisGroup;
 
         const paths = svg.append("g")
             .attr("class", "plotPaths")
@@ -169,8 +197,9 @@ const LineChart = ({ plotData }) => {
             .data(d3.group(I, i => Z[i]))
             .join("path")
                 .attr("class", ([z]) => `plotLine${z} plotPath${z}`)
+                .attr("clip-path", `url(#clip${plotId})`)
                 .attr("stroke", ([z]) => getPlotColor(z))
-                .attr("d", ([, I]) => line(I));
+                .attr("d", ([z, zI]) => line(zI));
         chartElemRefs.current['paths'] = paths;
 
         const tooltip = svg.append("g")
@@ -191,26 +220,28 @@ const LineChart = ({ plotData }) => {
         return svg;
     });
 
+    /* Events may fire before render */
+
     function updateTooltip(i, tooltip) {
-        const x = xScale(X[i]);
-        const y = yScale(Y[i]);
+        const x = xScale(X[i]); // Get x pixel coordinate of data at i
+        const y = yScale(Y[i]); // Get y pixel coordinate of data at i
         if ((x === 0 || x) && (y === 0 || y)) {
             tooltip.attr("transform", `translate(${x},${y})`);
             const tooltipText = tooltip.select("text");
             const tooltipTextText = secondsToReadableDate(X[i]/1000);
             tooltipText.text(tooltipTextText)
                 .attr("transform", `translate(0,-${Math.floor(y - 21)})`) // Arbitrary portion of margins.top //${plotHeight - yScale(Y[i])})`) // Overlays it on the x-axis
-                .attr("text-anchor", ( x < xScaleMax*0.125 ? "start" : ( x > xScaleMax*0.875 ? "end" : "middle" )));
+                .attr("text-anchor", ( x < chartWidth*0.125 ? "start" : ( x > chartWidth*0.875 ? "end" : "middle" )));
         }
     }
 
-    // Events may fire before render
     function pointermoved(event) {
         const tooltip = chartElemRefs.current['tooltip'];
         if (tooltip) {
             const [xm, ym] = d3.pointer(event);
             const i = d3.least(I, i => Math.hypot(xScale(X[i]) - xm, yScale(Y[i]) - ym)); // closest point
             updateTooltip(i, tooltip);
+            setActiveIndex( i >= plotData.length ? i - plotData.length : i );
         }
     }
 
