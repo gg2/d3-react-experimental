@@ -166,7 +166,7 @@ const MultiLineChart = ({ plotData }) => {
         }
 
         const zoom = d3.zoom()
-            .scaleExtent([1, 32]) // TODO: Base on ncreview resolution
+            .scaleExtent([1, X.length])
             .translateExtent([[0, cfg.plotTop], [cfg.plotRight, cfg.plotBottom]])
             .on('zoom', zoomed);
 
