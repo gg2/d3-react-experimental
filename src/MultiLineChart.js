@@ -67,6 +67,7 @@ const MultiLineChart = ({ plotData }) => {
         strokeOpacity: 1, // stroke opacity of line
     });
     const chartElemRefs = useRef({});
+    const [ tooltipSticky, setTooltipSticky ] = useState(false);
     const [ tooltipActive, setTooltipActive ] = useState(false);
     const [ activeIndex, setActiveIndex ] = useState(-1);
     const [ tooltipCoords, setTooltipCoords ] = useState({x: 0, y: 0});
@@ -132,8 +133,12 @@ const MultiLineChart = ({ plotData }) => {
         // Event handlers
         // NOTE: Events may fire before render
 
+        function pointerclick() {
+            setTooltipSticky(!tooltipSticky);
+        }
+
         function pointermoved(event) {
-            if (chartElemRefs.current['tooltip']) {
+            if (chartElemRefs.current['tooltip'] && !tooltipSticky) {
                 let [xm, ym] = d3.pointer(event);
                 let i = d3.least(I, i => Math.hypot(xScale(X[i]) - xm, yScale(Y[i]) - ym)); // closest point
                 let x = xScale(X[i]); // Get x pixel coordinate of data at i
@@ -160,9 +165,18 @@ const MultiLineChart = ({ plotData }) => {
             }
         }
 
+        function pointerleft() {
+            if (chartElemRefs.current['tooltip'] && !tooltipSticky) {
+                setTooltipActive(false);
+            }
+        }
+
         function zoomed(event) {
             setZoomState(event.transform);
-            setTooltipActive(false);
+            setTooltipSticky(false);
+            setTooltipCoords({x: -999, y: -99});
+            setTooltipText('');
+            // xScale.domain() ?
         }
 
         const zoom = d3.zoom()
@@ -195,8 +209,10 @@ const MultiLineChart = ({ plotData }) => {
 
         svg
             .attr("viewBox", [0, 0, chartWidth, chartHeight])
+            .on("click", pointerclick)
             .on("pointerenter", pointerentered)
-            .on("pointermove", pointermoved);
+            .on("pointermove", pointermoved)
+            .on("pointerleave", pointerleft);
             //.selectAll('*').remove();
 
         const xAxisGroup = svg.select("g.x-axis")
@@ -226,13 +242,18 @@ const MultiLineChart = ({ plotData }) => {
                 .attr("d", ([z, zI]) => line(zI));
         chartElemRefs.current['paths'] = paths;
 
+        const horizontalShift = ( tooltipCoords.x - margins.left < cfg.plotWidth * 0.1 ? 75 : ( tooltipCoords.x - margins.left > plotWidth * 0.9 ? -75 : 0 ));
+        const verticalShift = Math.floor(cfg.plotBottom - tooltipCoords.y);
         const tooltip = svg.select("g.plotTooltip")
             .attr("display", ( tooltipActive ? null : 'none' ))
-            .attr("transform", `translate(${tooltipCoords.x},${tooltipCoords.y})`)
-            .select("text")
+            .attr("transform", `translate(${tooltipCoords.x},${tooltipCoords.y})`);
+        tooltip.select("path")
+                .attr("transform", `translate(${horizontalShift},${verticalShift})`) // Overlays it on the x-axis
+                .attr("d", `M${-81},5H-5l5,-5l5,5H${81}v${25}h-${162}z`);
+        tooltip.select("text")
                 .text(tooltipText)
-                .attr("transform", `translate(0,${-1 * Math.floor(tooltipCoords.y - 21)})`) // Arbitrary portion of margins.top //${plotHeight - yScale(Y[i])})`) // Overlays it on the x-axis
-                .attr("text-anchor", ( tooltipCoords.x - margins.left < cfg.plotWidth * 0.1 ? "start" : ( tooltipCoords.x - margins.left > plotWidth * 0.9 ? "end" : "middle" )));
+                .attr("text-anchor", "middle")
+                .attr("transform", `translate(${horizontalShift},${verticalShift + 23})`) // Overlays it on the x-axis
         chartElemRefs.current['tooltip'] = tooltip;
 
         svg.call(zoom);
@@ -287,9 +308,11 @@ const MultiLineChart = ({ plotData }) => {
                     stroke={ d3PlotConfig.textColor }
                     r={ d3PlotConfig.strokeWidth * 1.666667 }
                 />
-                <text
-                    fill={ d3PlotConfig.textColor }
+                <path
+                    fill='white'
+                    stroke='black'
                 />
+                <text fill={ 'black' } />
             </g>
         </svg>
     );
