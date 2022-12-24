@@ -15,33 +15,14 @@ diffColors['A'] = diffColors[nonDiff];
 
 
 // TODO: 
-// 1) Make LineChart work.
+// X) Make LineChart work.
 // 2) Make MultiLineChart work.
 // 3) Adjust it to work in ncreview.
 
 // TODO, options:
-// - Set up React Component so React will not update the svg element. (Empty svg, with a useRef applied.)
+// ? Set up React Component so React will not update the svg element. (Empty svg, with a useRef applied.)
 //   ! D3 handles that part of the DOM entirely.
 //   https://reactjs.org/docs/integrating-with-other-libraries.html
-// 
-// - Move as much as possible into the useD3Plot.
-//   - Adhere to the original example.
-//   - Apply things programmatically (event handlers) and see if they can be contained in the hook.
-// - Move the function called by useD3Plot out of the React Component.
-//   - Pass everything in as parameters.
-// ! useD3Plot can have its own useState...
-// 
-// - Apply useMemo and what all else to the other variables.
-// - Apply useState to xScale, and other zoom properties?
-
-// TODO:
-// ? Apply useResizeObserver()?
-// const wrapperRef = useRef();
-// const dimensions = useResizeObserver(wrapperRef);
-//
-// return (
-//   <div ref={wrapperRef}>
-//     <svg ref={svgRef} />
 
 
 // Source for using D3 in React:
@@ -58,11 +39,13 @@ const useD3Plot = (renderD3Plot) => {
 
 // Source:
 // https://observablehq.com/@d3/line-chart
+// D3 with zoom in React
+// https://www.youtube.com/watch?v=dxUyI2wfYSI
 const LineChart = ({ plotData }) => {
 
     const plotId = "Ned";
-    let diff = nonDiff;
-    let chartWidth = 1400; // outer width, in pixels
+    const diff = nonDiff;
+    const chartWidth = 1400; // outer width, in pixels
     const margins = {
         top: 30,
         right: 30,

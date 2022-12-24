@@ -1,8 +1,8 @@
 import React from 'react';
 //import { Plot } from './Plot';
 //import { data } from './data';
-import { LineChart } from './LineChart';
-//import { MultiLineChart } from './MultiLineChart';
+//import { LineChart } from './LineChart';
+import { MultiLineChart } from './MultiLineChart';
 import { data } from './data';
 import './App.css';
 
@@ -13,7 +13,7 @@ function App() {
       <header className="App-header">
         D3 x React Experimentation
       </header>
-      <LineChart plotData={ data } />
+      <MultiLineChart plotData={ data } />
     </div>
   );
 }

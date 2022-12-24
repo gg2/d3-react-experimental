@@ -472,5 +472,5 @@ const lineChartData = [
     [927072000000, null]
 ];
 
-//export const data = plotData_diff; // MultiLineChart
-export const data = plotData_nonDiff; // LineChart
+//export const data = plotData_nonDiff; // LineChart
+export const data = plotData_diff; // MultiLineChart
