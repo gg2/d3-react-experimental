@@ -14,11 +14,6 @@ import {
 diffColors['A'] = diffColors[nonDiff];
 
 
-// TODO: 
-// X) Make LineChart work.
-// 2) Make MultiLineChart work.
-// 3) Adjust it to work in ncreview.
-
 // TODO, options:
 // ? Set up React Component so React will not update the svg element. (Empty svg, with a useRef applied.)
 //   ! D3 handles that part of the DOM entirely.
