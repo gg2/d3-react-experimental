@@ -1,5 +1,5 @@
 // NPM packages
-import React, { useState, useRef,  useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
 import {
@@ -71,10 +71,11 @@ const LineChart = ({ plotData }) => {
         xRange: [plotLeft, plotRight],
         yType: d3.scaleLinear, // the y-scale type
         yRange: [plotBottom, plotTop],
-        dynamicY: false, // y-axis follows data? or always based at 0?
+        dynamicY: false, // y-axis follows data (true), or always based at 0 (false)
+        backgroundColor: '#1a1a1a',
         textColor: diffColors[same].dark, // color of axes labels and other text
-        axisFontSize: "1.222222em", // font-size of axes 
-        tooltipFontSize: "1.555555em", // font-size of tooltip text
+        axisFontSize: "12px", // font-size of axes 
+        tooltipFontSize: "14px", // font-size of tooltip text
         strokeLinecap: "round", // stroke line cap of the line
         strokeLinejoin: "round", // stroke line join of the line
         strokeWidth: 2.0, // stroke width of line, in pixels
@@ -85,6 +86,7 @@ const LineChart = ({ plotData }) => {
     const [ activeIndex, setActiveIndex ] = useState(-1);
     const [ tooltipCoords, setTooltipCoords ] = useState({x: 0, y: 0});
     const [ tooltipText, setTooltipText ] = useState('');
+    const [ tooltipSticky, setTooltipSticky ] = useState(false);
     const [ zoomState, setZoomState ] = useState();
 
 
@@ -94,7 +96,7 @@ const LineChart = ({ plotData }) => {
         // Compute working values
         const X = d3.map(plotData, d => d.x); // Array of times
         const Y = d3.map(plotData, d => d.y); // Array of data values
-        const Z = d3.map(plotData, d => d.src); // Array of the "category" -- d.src (A|B), in this case.
+        const Z = d3.map(plotData, d => d.src); // Array of the "category": d.src (A|B), in this case.
         let defined = d => !( // identifies gaps in data
             [null, undefined].includes(d.x) ||
             isNaN(d.x) ||
@@ -146,8 +148,12 @@ const LineChart = ({ plotData }) => {
         // Event handlers
         // NOTE: Events may fire before render
 
+        function pointerclick() {
+            setTooltipSticky(!tooltipSticky);
+        }
+
         function pointermoved(event) {
-            if (chartElemRefs.current['tooltip']) {
+            if (chartElemRefs.current['tooltip'] && !tooltipSticky) {
                 let [xm, ym] = d3.pointer(event);
                 let i = d3.least(I, i => Math.hypot(xScale(X[i]) - xm, yScale(Y[i]) - ym)); // closest point
                 let x = xScale(X[i]); // Get x pixel coordinate of data at i
@@ -174,9 +180,18 @@ const LineChart = ({ plotData }) => {
             }
         }
 
+        function pointerleft() {
+            if (chartElemRefs.current['tooltip'] && !tooltipSticky) {
+                setTooltipActive(false);
+            }
+        }
+
         function zoomed(event) {
             setZoomState(event.transform);
-            setTooltipActive(false);
+            setTooltipSticky(false);
+            setTooltipCoords({x: -999, y: -99});
+            setTooltipText('');
+            // xScale.domain() ?
         }
 
         const zoom = d3.zoom()
@@ -193,7 +208,7 @@ const LineChart = ({ plotData }) => {
 
         function yFormat(d) { // formats y-axis tick labels
             if (d >= Math.pow(10, 12) || d <= -1 * Math.pow(10, 12) ||
-            (d <= Math.pow(10, -6) && d >= -1 * Math.pow(10, -6) && d !== 0))
+               (d <= Math.pow(10, -6) && d >= -1 * Math.pow(10, -6) && d !== 0))
             {
                 return d.toExponential(2);
             }
@@ -209,9 +224,10 @@ const LineChart = ({ plotData }) => {
 
         svg
             .attr("viewBox", [0, 0, chartWidth, chartHeight])
+            .on("click", pointerclick)
             .on("pointerenter", pointerentered)
-            .on("pointermove", pointermoved);
-            //.selectAll('*').remove();
+            .on("pointermove", pointermoved)
+            .on("pointerleave", pointerleft);
 
         const xAxisGroup = svg.select("g.x-axis")
             .call(xAxis)
@@ -237,16 +253,21 @@ const LineChart = ({ plotData }) => {
             .join("path")
                 .attr("class", ([z]) => `plotLine${z} plotPath${z}`)
                 .attr("stroke", ([z]) => getPlotColor(z))
-                .attr("d", ([z, zI]) => line(zI));
+                .attr("d", ([z, z_I]) => line(z_I));
         chartElemRefs.current['paths'] = paths;
 
+        const horizontalShift = ( tooltipCoords.x - margins.left < cfg.plotWidth * 0.1 ? 75 : ( tooltipCoords.x - margins.left > plotWidth * 0.9 ? -75 : 0 ));
+        const verticalShift = Math.floor(cfg.plotBottom - tooltipCoords.y - 4);
         const tooltip = svg.select("g.plotTooltip")
             .attr("display", ( tooltipActive ? null : 'none' ))
-            .attr("transform", `translate(${tooltipCoords.x},${tooltipCoords.y})`)
-            .select("text")
+            .attr("transform", `translate(${tooltipCoords.x},${tooltipCoords.y})`);
+        tooltip.select("path")
+                .attr("transform", `translate(${horizontalShift},${verticalShift})`) // Overlays it on the x-axis
+                .attr("d", `M${-81},5H-5l5,-5l5,5H${81}v${25}h-${162}z`);
+        tooltip.select("text")
                 .text(tooltipText)
-                .attr("transform", `translate(0,${-1 * Math.floor(tooltipCoords.y - 21)})`) // Arbitrary portion of margins.top //${plotHeight - yScale(Y[i])})`) // Overlays it on the x-axis
-                .attr("text-anchor", ( tooltipCoords.x - margins.left < cfg.plotWidth * 0.1 ? "start" : ( tooltipCoords.x - margins.left > plotWidth * 0.9 ? "end" : "middle" )));
+                .attr("text-anchor", "middle")
+                .attr("transform", `translate(${horizontalShift},${verticalShift + 23})`) // Overlays it on the x-axis
         chartElemRefs.current['tooltip'] = tooltip;
 
         svg.call(zoom);
@@ -260,11 +281,11 @@ const LineChart = ({ plotData }) => {
         maxWidth: '100%', 
         height: `${chartHeight}px`,
         margin: 0,
-        backgroundColor: '#1a1a1a',
+        backgroundColor: d3PlotConfig.backgroundColor,
         WebkitTapHighlightColor: 'transparent',
     };
     const stdText = {
-        color: d3PlotConfig.textColor
+        color: d3PlotConfig.textColor,
     };
 
 
@@ -301,8 +322,13 @@ const LineChart = ({ plotData }) => {
                     stroke={ d3PlotConfig.textColor }
                     r={ d3PlotConfig.strokeWidth * 1.666667 }
                 />
+                <path
+                    fill={ d3PlotConfig.backgroundColor }
+                    stroke={ d3PlotConfig.textColor }
+                />
                 <text
                     fill={ d3PlotConfig.textColor }
+                    fontSize={ d3PlotConfig.tooltipFontSize }
                 />
             </g>
         </svg>

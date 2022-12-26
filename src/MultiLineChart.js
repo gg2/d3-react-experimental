@@ -8,7 +8,7 @@ import {
     chartHeight, sharedLeftMargin
 } from './resources/constants';
 import {
-    secondsToReadableDate
+    secondsToReadableDate,
 } from './utils';
 
 
@@ -24,9 +24,10 @@ const useD3Plot = (renderD3Plot) => {
     return chartRef;
 };
 
-
 // Source:
-// https://observablehq.com/@d3/multi-line-chart
+// https://observablehq.com/@d3/line-chart
+// D3 with zoom in React
+// https://www.youtube.com/watch?v=dxUyI2wfYSI
 const MultiLineChart = ({ plotData }) => {
 
     const plotId = "Frank";
@@ -54,10 +55,11 @@ const MultiLineChart = ({ plotData }) => {
         plotLeft: plotLeft,
         plotRight: plotRight,
         xType: d3.scaleUtc, // the x-scale type
-        xRange: [margins.left, plotWidth + margins.left], // [left, right]
+        xRange: [plotLeft, plotRight],
         yType: d3.scaleLinear, // the y-scale type
-        yRange: [chartHeight - margins.bottom, margins.top], // [bottom, top]
-        dynamicY: false, // y-axis follows data (true), or always based at 0 (false)?
+        yRange: [plotBottom, plotTop],
+        dynamicY: false, // y-axis follows data (true), or always based at 0 (false)
+        backgroundColor: '#1a1a1a',
         textColor: diffColors[same].dark, // color of axes labels and other text
         axisFontSize: "1.222222em", // font-size of axes 
         tooltipFontSize: "1.555555em", // font-size of tooltip text
@@ -67,11 +69,11 @@ const MultiLineChart = ({ plotData }) => {
         strokeOpacity: 1, // stroke opacity of line
     });
     const chartElemRefs = useRef({});
-    const [ tooltipSticky, setTooltipSticky ] = useState(false);
     const [ tooltipActive, setTooltipActive ] = useState(false);
     const [ activeIndex, setActiveIndex ] = useState(-1);
     const [ tooltipCoords, setTooltipCoords ] = useState({x: 0, y: 0});
     const [ tooltipText, setTooltipText ] = useState('');
+    const [ tooltipSticky, setTooltipSticky ] = useState(false);
     const [ zoomState, setZoomState ] = useState();
 
 
@@ -81,7 +83,7 @@ const MultiLineChart = ({ plotData }) => {
         // Compute working values
         const X = d3.map(plotData, d => d.x); // Array of times
         const Y = d3.map(plotData, d => d.y); // Array of data values
-        const Z = d3.map(plotData, d => d.src); // Array of the "category" -- d.src (A|B), in this case.
+        const Z = d3.map(plotData, d => d.src); // Array of the "category": d.src (A|B), in this case.
         let defined = d => !( // identifies gaps in data
             [null, undefined].includes(d.x) ||
             isNaN(d.x) ||
@@ -113,7 +115,7 @@ const MultiLineChart = ({ plotData }) => {
         }
         const yScale = cfg.yType(yDomain, cfg.yRange);
 
-        // Construct axes.
+        // Construct axes
         const xAxis = d3.axisBottom(xScale)
             .ticks(chartWidth / (chartWidth/12))
             .tickSizeOuter(0);
@@ -123,7 +125,7 @@ const MultiLineChart = ({ plotData }) => {
             .tickFormat(yFormat)
             .tickPadding(9);
 
-        // Construct a line generator.
+        // Construct a line generator
         const line = d3.line()
             .defined(i => D[i])
             .curve(cfg.curve)
@@ -193,7 +195,7 @@ const MultiLineChart = ({ plotData }) => {
 
         function yFormat(d) { // formats y-axis tick labels
             if (d >= Math.pow(10, 12) || d <= -1 * Math.pow(10, 12) ||
-            (d <= Math.pow(10, -6) && d >= -1 * Math.pow(10, -6) && d !== 0))
+               (d <= Math.pow(10, -6) && d >= -1 * Math.pow(10, -6) && d !== 0))
             {
                 return d.toExponential(2);
             }
@@ -213,7 +215,6 @@ const MultiLineChart = ({ plotData }) => {
             .on("pointerenter", pointerentered)
             .on("pointermove", pointermoved)
             .on("pointerleave", pointerleft);
-            //.selectAll('*').remove();
 
         const xAxisGroup = svg.select("g.x-axis")
             .call(xAxis)
@@ -239,11 +240,11 @@ const MultiLineChart = ({ plotData }) => {
             .join("path")
                 .attr("class", ([z]) => `plotLine${z} plotPath${z}`)
                 .attr("stroke", ([z]) => getPlotColor(z))
-                .attr("d", ([z, zI]) => line(zI));
+                .attr("d", ([z, z_I]) => line(z_I));
         chartElemRefs.current['paths'] = paths;
 
         const horizontalShift = ( tooltipCoords.x - margins.left < cfg.plotWidth * 0.1 ? 75 : ( tooltipCoords.x - margins.left > plotWidth * 0.9 ? -75 : 0 ));
-        const verticalShift = Math.floor(cfg.plotBottom - tooltipCoords.y);
+        const verticalShift = Math.floor(cfg.plotBottom - tooltipCoords.y - 4);
         const tooltip = svg.select("g.plotTooltip")
             .attr("display", ( tooltipActive ? null : 'none' ))
             .attr("transform", `translate(${tooltipCoords.x},${tooltipCoords.y})`);
@@ -267,11 +268,11 @@ const MultiLineChart = ({ plotData }) => {
         maxWidth: '100%', 
         height: `${chartHeight}px`,
         margin: 0,
-        backgroundColor: '#1a1a1a',
+        backgroundColor: d3PlotConfig.backgroundColor,
         WebkitTapHighlightColor: 'transparent',
     };
     const stdText = {
-        color: d3PlotConfig.textColor
+        color: d3PlotConfig.textColor,
     };
 
 
@@ -309,10 +310,13 @@ const MultiLineChart = ({ plotData }) => {
                     r={ d3PlotConfig.strokeWidth * 1.666667 }
                 />
                 <path
-                    fill='white'
-                    stroke='black'
+                    fill={ d3PlotConfig.backgroundColor }
+                    stroke={ d3PlotConfig.textColor }
                 />
-                <text fill={ 'black' } />
+                <text
+                    fill={ d3PlotConfig.textColor }
+                    fontSize={ d3PlotConfig.tooltipFontSize }
+                />
             </g>
         </svg>
     );
