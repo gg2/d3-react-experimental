@@ -263,7 +263,7 @@ const LineChart = ({ plotData }) => {
             .attr("transform", `translate(${tooltipCoords.x},${tooltipCoords.y})`);
         tooltip.select("path")
                 .attr("transform", `translate(${horizontalShift},${verticalShift})`) // Overlays it on the x-axis
-                .attr("d", `M${-81},5H-5l5,-5l5,5H${81}v${25}h-${162}z`);
+                .attr("d", `M${-78},5H-5l5,-5l5,5H${80}v${25}h-${158}z`);
         tooltip.select("text")
                 .text(tooltipText)
                 .attr("text-anchor", "middle")

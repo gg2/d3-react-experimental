@@ -61,8 +61,8 @@ const MultiLineChart = ({ plotData }) => {
         dynamicY: false, // y-axis follows data (true), or always based at 0 (false)
         backgroundColor: '#1a1a1a',
         textColor: diffColors[same].dark, // color of axes labels and other text
-        axisFontSize: "1.222222em", // font-size of axes 
-        tooltipFontSize: "1.555555em", // font-size of tooltip text
+        axisFontSize: "12px", // font-size of axes 
+        tooltipFontSize: "14px", // font-size of tooltip text
         strokeLinecap: "round", // stroke line cap of the line
         strokeLinejoin: "round", // stroke line join of the line
         strokeWidth: 2.0, // stroke width of line, in pixels
@@ -250,7 +250,7 @@ const MultiLineChart = ({ plotData }) => {
             .attr("transform", `translate(${tooltipCoords.x},${tooltipCoords.y})`);
         tooltip.select("path")
                 .attr("transform", `translate(${horizontalShift},${verticalShift})`) // Overlays it on the x-axis
-                .attr("d", `M${-81},5H-5l5,-5l5,5H${81}v${25}h-${162}z`);
+                .attr("d", `M${-78},5H-5l5,-5l5,5H${80}v${25}h-${158}z`);
         tooltip.select("text")
                 .text(tooltipText)
                 .attr("text-anchor", "middle")
