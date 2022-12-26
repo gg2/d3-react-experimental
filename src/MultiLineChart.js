@@ -183,7 +183,7 @@ const MultiLineChart = ({ plotData }) => {
 
         const zoom = d3.zoom()
             .scaleExtent([1, X.length])
-            .translateExtent([[0, cfg.plotTop], [cfg.plotRight, cfg.plotBottom]])
+            .translateExtent([[0, 0], [chartWidth, chartHeight]])
             .on('zoom', zoomed);
 
         // Plot formats
