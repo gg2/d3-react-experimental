@@ -270,7 +270,9 @@ const LineChart = ({ plotData }) => {
                 .attr("transform", `translate(${horizontalShift},${verticalShift + 23})`) // Overlays it on the x-axis
         chartElemRefs.current['tooltip'] = tooltip;
 
-        svg.call(zoom);
+        svg.call(zoom)
+            .on("wheel", event => event.preventDefault());
+        //    .on("wheel.zoom", null); // Disable scroll-wheel-based zooming
 
         return svg;
     });
